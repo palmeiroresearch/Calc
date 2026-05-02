@@ -1,0 +1,247 @@
+/* =============================================
+   CALCULADORA — Design System & Layout
+   ============================================= */
+
+/* 1. RESET & BASE */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', system-ui, sans-serif;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* 2. CSS VARIABLES */
+:root {
+    --color-bg:                    #000000;
+    --color-btn-number:            #333333;
+    --color-btn-number-hover:      #4d4d4d;
+    --color-btn-utility:           #a5a5a5;
+    --color-btn-utility-hover:     #bfbfbf;
+    --color-btn-operator:          #ff9f0a;
+    --color-btn-operator-hover:    #ffb340;
+    --color-btn-operator-active:   #ffffff;
+    --color-display-text:          #ffffff;
+    --color-btn-number-text:       #ffffff;
+    --color-btn-utility-text:      #000000;
+    --color-btn-operator-text:     #ffffff;
+    --color-btn-operator-active-text: #ff9f0a;
+
+    --btn-gap: 12px;
+    --display-font-xl: 6rem;
+    --display-font-lg: 4.5rem;
+    --display-font-md: 3.5rem;
+    --display-font-sm: 2.8rem;
+    --calc-max-width: 420px;
+    --transition-fast: 80ms ease;
+}
+
+/* 3. OFFLINE INDICATOR */
+.offline-indicator {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    background: #636366;
+    color: #fff;
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 6px;
+    z-index: 9999;
+    letter-spacing: 0.02em;
+}
+body.is-offline .offline-indicator { display: block; }
+
+/* 4. CALCULATOR CONTAINER */
+#calculator {
+    width: 100%;
+    max-width: var(--calc-max-width);
+    padding: 0 var(--btn-gap) calc(var(--btn-gap) + env(safe-area-inset-bottom, 0px));
+}
+
+/* 5. DISPLAY */
+#calc-display {
+    padding: 0 8px 16px;
+    text-align: right;
+    overflow: hidden;
+    line-height: 1;
+}
+
+#display-value {
+    font-size: var(--display-font-xl);
+    font-weight: 300;
+    color: var(--color-display-text);
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    transition: font-size 0.1s ease;
+    display: block;
+}
+
+/* 6. BUTTON GRID */
+#btn-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--btn-gap);
+}
+
+/* 7. BUTTONS — BASE */
+.btn {
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 2rem;
+    font-weight: 400;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    transition: filter var(--transition-fast);
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+}
+
+.btn:active { filter: brightness(1.4); }
+
+/* Ripple on tap for touch devices */
+@media (hover: none) {
+    .btn:active { filter: brightness(1.35); }
+}
+
+/* Hover for desktop */
+@media (hover: hover) {
+    .btn--number:hover   { background: var(--color-btn-number-hover); }
+    .btn--utility:hover  { background: var(--color-btn-utility-hover); }
+    .btn--operator:hover { background: var(--color-btn-operator-hover); }
+    .btn--equals:hover   { background: var(--color-btn-operator-hover); }
+}
+
+/* 8. BUTTON TYPES */
+.btn--number {
+    background: var(--color-btn-number);
+    color: var(--color-btn-number-text);
+}
+
+.btn--utility {
+    background: var(--color-btn-utility);
+    color: var(--color-btn-utility-text);
+}
+
+.btn--operator {
+    background: var(--color-btn-operator);
+    color: var(--color-btn-operator-text);
+}
+
+.btn--equals {
+    background: var(--color-btn-operator);
+    color: var(--color-btn-operator-text);
+}
+
+/* Active operator highlight (selected operator waiting for second operand) */
+.btn--operator.btn--active {
+    background: var(--color-btn-operator-active);
+    color: var(--color-btn-operator-active-text);
+}
+
+/* 9. WIDE BUTTON (0) */
+.btn--wide {
+    grid-column: span 2;
+    border-radius: 9999px;
+    aspect-ratio: unset;
+    justify-content: flex-start;
+    padding-left: 28px;
+}
+
+/* 10. UPDATE BANNER */
+#update-banner {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: #1c1c1e;
+    border-top: 1px solid #3a3a3c;
+    color: #fff;
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 9998;
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+#update-banner.visible { transform: translateY(0); }
+
+.update-banner__body { flex: 1; }
+
+.update-banner__title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.update-banner__sub {
+    font-size: 12px;
+    color: #ebebf599;
+}
+
+.update-banner__actions { display: flex; gap: 8px; }
+
+.update-btn {
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+.update-btn--primary  { background: var(--color-btn-operator); color: #000; }
+.update-btn--secondary { background: #3a3a3c; color: #fff; }
+
+/* 11. RESPONSIVE — Desktop */
+@media (min-width: 480px) {
+    body {
+        justify-content: center;
+        align-items: center;
+        overflow: auto;
+    }
+
+    #calculator {
+        border-radius: 48px;
+        padding: 28px;
+        background: var(--color-bg);
+        box-shadow: 0 32px 80px rgba(0, 0, 0, 0.7), 0 0 0 1px #1a1a1a;
+    }
+}
+
+/* 12. COMPACT MODE — Landscape phones */
+@media (max-height: 680px) and (max-width: 480px) {
+    :root {
+        --btn-gap: 8px;
+        --display-font-xl: 4rem;
+        --display-font-lg: 3.2rem;
+        --display-font-md: 2.6rem;
+    }
+
+    #calc-display { padding-bottom: 10px; }
+}
+
+/* 13. ANIMATIONS */
+@keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
