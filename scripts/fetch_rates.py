@@ -10,9 +10,18 @@ HEADERS = {
     'Accept-Language': 'es,en;q=0.9',
 }
 
-WANTED = {'USD', 'EUR', 'MLC', 'CLA', 'CAD', 'MXN', 'ZELLE'}
+# Exact JSON keys → our currency codes
+# median = value shown on eltoque.com website
+KEY_MAP = {
+    'USD':           'USD',
+    'ECU':           'EUR',   # EUR is stored as "ECU" in the API
+    'MLC':           'MLC',
+    'CLA':           'CLA',
+    'CAD':           'CAD',
+    'MXN':           'MXN',
+    'USD_Zelle.CUP': 'ZELLE',
+}
 
-# Realistic CUP exchange rate ranges — anything outside is rejected
 RATE_RANGES = {
     'USD':   (80,  2000),
     'EUR':   (80,  2000),
@@ -24,65 +33,52 @@ RATE_RANGES = {
 }
 
 
-def collect_rates(obj, found):
-    """Recursively collect ALL values found for each currency code."""
-    if isinstance(obj, dict):
-        code = (
-            obj.get('code') or obj.get('currency') or obj.get('tipo') or
-            obj.get('moneda') or obj.get('symbol') or obj.get('name')
-        )
-        # Check multiple field names for the numeric value
-        raw_value = (
-            obj.get('value') or obj.get('rate') or obj.get('tasa') or
-            obj.get('informal') or obj.get('promedio') or obj.get('precio') or
-            obj.get('venta') or obj.get('compra')
-        )
-        if code and raw_value:
-            key = str(code).upper().strip()
-            if key in WANTED:
-                try:
-                    found.setdefault(key, []).append(float(raw_value))
-                except (TypeError, ValueError):
-                    pass
+def extract_from_next_data(page_data):
+    """
+    Navigate props.pageProps looking for a dict whose keys include
+    known currency codes and whose values have 'median'.
+    Returns { 'USD': 533.51, 'MLC': 406.52, ... } or {}.
+    """
+    page_props = page_data.get('props', {}).get('pageProps', {})
+
+    def find_rates_dict(obj, depth=0):
+        if depth > 6 or not isinstance(obj, dict):
+            return None
+        known = set(KEY_MAP.keys()) & set(obj.keys())
+        if known:
+            sample = obj[next(iter(known))]
+            if isinstance(sample, dict) and 'median' in sample:
+                return obj
         for v in obj.values():
-            collect_rates(v, found)
-    elif isinstance(obj, list):
-        for item in obj:
-            collect_rates(item, found)
+            result = find_rates_dict(v, depth + 1)
+            if result:
+                return result
+        return None
 
+    currency_dict = find_rates_dict(page_props)
+    if not currency_dict:
+        return {}
 
-def pick_best(found):
-    """For each currency, keep the first value that falls within its valid range."""
     rates = {}
-    for code, values in found.items():
-        lo, hi = RATE_RANGES.get(code, (10, 2000))
-        valid = [v for v in values if lo <= v <= hi]
-        if valid:
-            rates[code] = valid[0]
-            print(f'  {code}: picked {valid[0]} from candidates {values}')
+    for json_key, our_code in KEY_MAP.items():
+        entry = currency_dict.get(json_key)
+        if not isinstance(entry, dict):
+            continue
+        raw = entry.get('median')
+        if raw is None:
+            continue
+        try:
+            val = float(raw)
+        except (TypeError, ValueError):
+            continue
+
+        lo, hi = RATE_RANGES.get(our_code, (10, 2000))
+        if lo <= val <= hi:
+            rates[our_code] = round(val, 2)
+            print(f'  {our_code}: {val} (from key "{json_key}")')
         else:
-            print(f'  {code}: all candidates rejected {values} (range {lo}-{hi})')
-    return rates
+            print(f'  {our_code}: {val} OUT OF RANGE [{lo}-{hi}] — skipped')
 
-
-def regex_fallback(html):
-    """Last resort: find rates directly in the raw HTML text."""
-    rates = {}
-    for currency in WANTED:
-        lo, hi = RATE_RANGES.get(currency, (10, 2000))
-        # Match: USD...535.00 or 535.00...USD within ~80 chars
-        pattern = rf'(?:{currency}[^0-9]{{0,80}}?(\d{{2,4}}(?:[.,]\d{{1,2}})?)|(\d{{2,4}}(?:[.,]\d{{1,2}})?)[^0-9]{{0,30}}?{currency})'
-        matches = re.findall(pattern, html, re.IGNORECASE)
-        for groups in matches:
-            raw = next((g for g in groups if g), None)
-            if raw:
-                try:
-                    val = float(raw.replace(',', '.'))
-                    if lo <= val <= hi:
-                        rates[currency] = val
-                        break
-                except ValueError:
-                    pass
     return rates
 
 
@@ -92,54 +88,32 @@ def fetch_rates():
     resp.raise_for_status()
     print(f'HTTP {resp.status_code}, {len(resp.text)} chars')
 
-    rates = {}
-
-    # Strategy 1: __NEXT_DATA__ JSON tree — collect all, pick best per range
+    # Extract __NEXT_DATA__
     match = re.search(
         r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>',
         resp.text,
         re.DOTALL,
     )
-    if match:
-        try:
-            page_data = json.loads(match.group(1))
-            found = {}
-            collect_rates(page_data, found)
-            print('Strategy 1 (NEXT_DATA) — all candidates found:')
-            rates = pick_best(found)
-        except json.JSONDecodeError as e:
-            print(f'Strategy 1 JSON error: {e}')
-    else:
-        print('Strategy 1: __NEXT_DATA__ not found')
-
-    # Strategy 2: regex on raw HTML
-    if not rates:
-        print('Strategy 2 (HTML regex)...')
-        rates = regex_fallback(resp.text)
-        print(f'Strategy 2 result: {rates}')
-
-    if not rates:
-        print('ERROR: No rates found by any strategy')
+    if not match:
+        print('ERROR: __NEXT_DATA__ not found in page')
         sys.exit(1)
 
-    # Warn if fewer currencies than expected
-    missing = WANTED - set(rates.keys())
+    try:
+        page_data = json.loads(match.group(1))
+    except json.JSONDecodeError as e:
+        print(f'ERROR: JSON parse failed: {e}')
+        sys.exit(1)
+
+    print('Extracting rates from pageProps...')
+    rates = extract_from_next_data(page_data)
+
+    if not rates:
+        print('ERROR: No valid rates found in __NEXT_DATA__')
+        sys.exit(1)
+
+    missing = set(KEY_MAP.values()) - set(rates.keys())
     if missing:
         print(f'WARNING: Missing currencies: {missing}')
-
-    # Sanity check: if 3+ currencies share the exact same value, something is wrong
-    from collections import Counter
-    value_counts = Counter(rates.values())
-    for val, count in value_counts.items():
-        if count >= 3:
-            bad = [k for k, v in rates.items() if v == val]
-            print(f'WARNING: {count} currencies share value {val}: {bad} — removing them')
-            for k in bad:
-                del rates[k]
-
-    if not rates:
-        print('ERROR: All rates removed by sanity checks')
-        sys.exit(1)
 
     output = {
         'updated': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
@@ -150,7 +124,7 @@ def fetch_rates():
     with open('rates.json', 'w', encoding='utf-8') as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
 
-    print(f'\nOK — rates.json updated: {rates}')
+    print(f'\nOK — rates.json updated with {len(rates)} currencies: {rates}')
 
 
 if __name__ == '__main__':

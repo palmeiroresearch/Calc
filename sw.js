@@ -1,4 +1,4 @@
-const CACHE_NAME = 'calculadora-v1.1.0';
+const CACHE_NAME = 'calculadora-v1.2.0';
 
 // Must exist — install fails if any of these are missing
 const ASSETS_CRITICAL = [
@@ -43,10 +43,27 @@ self.addEventListener('activate', e => {
     );
 });
 
-// Fetch: cache-first with background revalidation (stale-while-revalidate)
+// Fetch: network-first for rates.json, cache-first for everything else
 self.addEventListener('fetch', e => {
     if (e.request.method !== 'GET') return;
 
+    const isRates = e.request.url.endsWith('rates.json');
+
+    if (isRates) {
+        // Network-first: always try to get fresh rates, fall back to cache offline
+        e.respondWith(
+            fetch(e.request).then(res => {
+                if (res && res.ok) {
+                    const clone = res.clone();
+                    caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+                }
+                return res;
+            }).catch(() => caches.match(e.request))
+        );
+        return;
+    }
+
+    // Cache-first for all other assets (app shell)
     e.respondWith(
         caches.match(e.request).then(cached => {
             const network = fetch(e.request).then(res => {

@@ -1,4 +1,4 @@
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 
 const BUTTON_LAYOUT = [
     { label: 'AC', type: 'utility',  value: 'AC', id: 'btn-clear',   wide: false },

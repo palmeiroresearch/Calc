@@ -10,18 +10,70 @@ const CURRENCY_LABELS = {
 };
 
 const Converter = {
-    rates:       {},
-    updated:     null,
-    initialized: false,
-    _fromCur:    'USD',
-    _toCur:      'CUP',
+    rates:        {},
+    updated:      null,
+    initialized:  false,
+    _fromCur:     'USD',
+    _toCur:       'CUP',
+    _refreshing:  false,
+    _timeInterval: null,
 
     async init() {
-        if (this.initialized) return;
-        this.initialized = true;
-        this._renderSkeleton();
+        if (!this.initialized) {
+            // First open: show skeleton, fetch, render
+            this.initialized = true;
+            this._renderSkeleton();
+            await this._loadRates();
+            this._render();
+        } else {
+            // Subsequent opens: show existing data instantly, refresh silently
+            this._silentRefresh();
+        }
+    },
+
+    async _silentRefresh() {
+        if (this._refreshing) return;
+        this._refreshing = true;
+        this._setRefreshIcon(true);
+        const prevUpdated = this.updated;
         await this._loadRates();
+        this._refreshing = false;
+        if (this.updated !== prevUpdated) {
+            this._render();
+        } else {
+            this._setRefreshIcon(false);
+        }
+    },
+
+    async _manualRefresh() {
+        if (this._refreshing) return;
+        this._refreshing = true;
+        this._setRefreshIcon(true);
+        await this._loadRates();
+        this._refreshing = false;
         this._render();
+    },
+
+    _setRefreshIcon(spinning) {
+        const btn = document.getElementById('btn-refresh-rates');
+        if (btn) btn.style.animation = spinning ? 'spin 1s linear infinite' : '';
+    },
+
+    startTimeTicker() {
+        this.stopTimeTicker();
+        this._timeInterval = setInterval(() => {
+            const badge = document.querySelector('.rates-updated-text');
+            if (badge && this.updated) {
+                badge.textContent = `Actualizado ${this._timeAgo(this.updated)}`;
+            }
+        }, 60_000);
+    },
+
+    stopTimeTicker() {
+        if (this._timeInterval) {
+            clearInterval(this._timeInterval);
+            this._timeInterval = null;
+        }
     },
 
     async _loadRates() {
@@ -37,10 +89,8 @@ const Converter = {
         }
     },
 
-    _renderSkeleton() {
-        const el = document.getElementById('divisas-content');
-        if (!el) return;
-        el.innerHTML = `
+    _headerHTML() {
+        return `
             <div class="divisas-header">
                 <button class="back-btn" onclick="showScreen('screen-calc')" aria-label="Volver">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -48,8 +98,20 @@ const Converter = {
                     </svg>
                 </button>
                 <span class="divisas-title">Divisas</span>
-                <div style="width:36px"></div>
-            </div>
+                <button class="back-btn" id="btn-refresh-rates" onclick="Converter._manualRefresh()" aria-label="Actualizar tasas">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"/>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                    </svg>
+                </button>
+            </div>`;
+    },
+
+    _renderSkeleton() {
+        const el = document.getElementById('divisas-content');
+        if (!el) return;
+        el.innerHTML = `
+            ${this._headerHTML()}
             <div class="divisas-body">
                 <div class="rates-updated skeleton-text">Cargando...</div>
                 <div class="rates-grid skeleton-grid">
@@ -67,20 +129,12 @@ const Converter = {
         const timeStr  = this.updated ? this._timeAgo(this.updated) : null;
 
         el.innerHTML = `
-            <div class="divisas-header">
-                <button class="back-btn" onclick="showScreen('screen-calc')" aria-label="Volver">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="15 18 9 12 15 6"/>
-                    </svg>
-                </button>
-                <span class="divisas-title">Divisas</span>
-                <div style="width:36px"></div>
-            </div>
+            ${this._headerHTML()}
             <div class="divisas-body">
                 ${hasRates ? `
                     <div class="rates-updated">
                         <span class="rates-dot"></span>
-                        ${timeStr ? `Actualizado ${timeStr}` : 'Datos cargados'}
+                        <span class="rates-updated-text">${timeStr ? `Actualizado ${timeStr}` : 'Datos cargados'}</span>
                         <a class="rates-source" href="https://eltoque.com" target="_blank" rel="noopener">eltoque.com</a>
                     </div>
                     <div class="rates-grid">${this._renderCards()}</div>
@@ -101,7 +155,10 @@ const Converter = {
             </div>
         `;
 
-        if (hasRates) this._attachConverterEvents();
+        if (hasRates) {
+            this._attachConverterEvents();
+            this.startTimeTicker();
+        }
     },
 
     _renderCards() {

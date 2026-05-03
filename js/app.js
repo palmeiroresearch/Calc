@@ -164,7 +164,11 @@ function setupOfflineIndicator() {
 function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('screen--active'));
     document.getElementById(id).classList.add('screen--active');
-    if (id === 'screen-divisas') Converter.init();
+    if (id === 'screen-divisas') {
+        Converter.init();
+    } else {
+        Converter.stopTimeTicker();
+    }
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
