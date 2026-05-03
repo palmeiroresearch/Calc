@@ -96,6 +96,7 @@ const KEY_MAP = {
 };
 
 function handleKeyboard(e) {
+    if (!document.getElementById('screen-calc').classList.contains('screen--active')) return;
     const mapping = KEY_MAP[e.key];
     if (!mapping) return;
     e.preventDefault();
@@ -159,6 +160,13 @@ function setupOfflineIndicator() {
     update();
 }
 
+// ── Screen navigation ─────────────────────────────────────────────────────────
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('screen--active'));
+    document.getElementById(id).classList.add('screen--active');
+    if (id === 'screen-divisas') Converter.init();
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     buildDOM();
@@ -166,4 +174,8 @@ document.addEventListener('DOMContentLoaded', () => {
     attachEvents();
     registerSW();
     setupOfflineIndicator();
+
+    document.getElementById('btn-goto-divisas').addEventListener('click', () => {
+        showScreen('screen-divisas');
+    });
 });

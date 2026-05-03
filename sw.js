@@ -1,4 +1,4 @@
-const CACHE_NAME = 'calculadora-v1.0.0';
+const CACHE_NAME = 'calculadora-v1.1.0';
 
 // Must exist — install fails if any of these are missing
 const ASSETS_CRITICAL = [
@@ -8,6 +8,7 @@ const ASSETS_CRITICAL = [
     './css/main.css',
     './js/config.js',
     './js/logic.js',
+    './js/converter.js',
     './js/app.js',
 ];
 
@@ -15,6 +16,7 @@ const ASSETS_CRITICAL = [
 const ASSETS_OPTIONAL = [
     './icon-192.png',
     './icon-512.png',
+    './rates.json',
 ];
 
 // Install: cache critical assets, then try optional ones
