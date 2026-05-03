@@ -1,21 +1,32 @@
 const CACHE_NAME = 'calculadora-v1.0.0';
 
-const ASSETS = [
-    '/Calculadora/',
-    '/Calculadora/index.html',
-    '/Calculadora/manifest.json',
-    '/Calculadora/css/main.css',
-    '/Calculadora/js/config.js',
-    '/Calculadora/js/logic.js',
-    '/Calculadora/js/app.js',
-    '/Calculadora/icon-192.png',
-    '/Calculadora/icon-512.png',
+// Must exist — install fails if any of these are missing
+const ASSETS_CRITICAL = [
+    './',
+    './index.html',
+    './manifest.json',
+    './css/main.css',
+    './js/config.js',
+    './js/logic.js',
+    './js/app.js',
 ];
 
-// Install: cache all assets, do NOT skipWaiting
+// Optional — cached individually, errors ignored
+const ASSETS_OPTIONAL = [
+    './icon-192.png',
+    './icon-512.png',
+];
+
+// Install: cache critical assets, then try optional ones
 self.addEventListener('install', e => {
     e.waitUntil(
-        caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
+        caches.open(CACHE_NAME).then(cache =>
+            cache.addAll(ASSETS_CRITICAL).then(() =>
+                Promise.all(
+                    ASSETS_OPTIONAL.map(url => cache.add(url).catch(() => {}))
+                )
+            )
+        )
     );
 });
 
