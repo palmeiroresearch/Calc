@@ -1,13 +1,13 @@
 {
-  "updated": "2026-05-27T18:22:24Z",
+  "updated": "2026-05-27T21:50:13Z",
   "source": "eltoque.com",
   "rates": {
     "USD": 565.0,
     "EUR": 640.0,
-    "MLC": 430.0,
+    "MLC": 412.5,
     "CLA": 545.0,
     "CAD": 380.0,
     "MXN": 36.0,
-    "ZELLE": 545.0
+    "ZELLE": 550.0
   }
 }
